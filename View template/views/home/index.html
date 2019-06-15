@@ -1,0 +1,20 @@
+{{ define "home/index-head"}}
+<title>{{.title}}</title>
+<style type="text/css">
+    body {
+        background: #ffffff;
+    }
+</style>
+{{ end }}
+
+<div id="part">
+    {{ render "shared/_part.html"}}
+</div>
+
+<div id="content">
+    Hello home page
+</div>
+
+{{ define "home/index-body"}}
+<div id="body"> extend body content in layout. </div>
+{{ end }}
