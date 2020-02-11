@@ -1,21 +1,23 @@
 package main
 
 import (
+	"io"
 	"os"
 	"time"
 
 	"github.com/kataras/iris"
+	"github.com/kataras/iris/middleware/logger"
 )
 
-// Get a filename based on the date, just for the sugar.
+// 按天生成日志文件
 func todayFilename() string {
 	today := time.Now().Format("20060102")
 	return today + ".log"
 }
 
+// 创建打开文件
 func newLogFile() *os.File {
 	filename := todayFilename()
-	// Open the file, this will append to the today's file if server restarted.
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		panic(err)
@@ -29,19 +31,38 @@ func main() {
 	defer f.Close()
 
 	app := iris.New()
-	// Attach the file as logger, remember, iris' app logger is just an io.Writer.
-	// Use the following code if you need to write the logs to file and console at the same time.
-	// app.Logger().SetOutput(io.MultiWriter(f, os.Stdout))
-	app.Logger().SetOutput(f)
+	// 同时写文件日志与控制台日志
+	app.Logger().SetOutput(io.MultiWriter(f, os.Stdout))
 
-	app.Get("/ping", func(ctx iris.Context) {
-		// for the sake of simplicity, in order see the logs at the ./_today_.txt
-		ctx.Application().Logger().Infof("Request path: %s", ctx.Path())
-		ctx.WriteString("pong")
+	requestLogger := logger.New(logger.Config{
+		// Status displays status code
+		Status: true,
+		// IP displays request's remote address
+		IP: true,
+		// Method displays the http method
+		Method: true,
+		// Path displays the request path
+		Path: true,
+		// Query appends the url query to the Path.
+		Query: true,
+		// if !empty then its contents derives from `ctx.Values().Get("logger_message")
+		// will be added to the logs.
+		MessageContextKeys: []string{"logger_message"},
+		// if !empty then its contents derives from `ctx.GetHeader("User-Agent")
+		MessageHeaderKeys: []string{"User-Agent"},
+	})
+	app.Use(requestLogger)
+
+	app.Get("/info", func(ctx iris.Context) {
+		ctx.Application().Logger().Infof("hello: %s", "i am info.")
+		ctx.WriteString("write info")
 	})
 
-	// Navigate to http://localhost:8080/ping
-	// and open the ./logs{TODAY}.txt file.
+	app.Get("/error", func(ctx iris.Context) {
+		ctx.Application().Logger().Errorf("hello: %s", "i am error.")
+		ctx.WriteString("write error")
+	})
+
 	app.Run(
 		iris.Addr(":8080"),
 		iris.WithoutBanner,
